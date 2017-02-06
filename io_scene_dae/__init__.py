@@ -41,12 +41,12 @@ if "bpy" in locals():
 
 class ExportDAE(bpy.types.Operator, ExportHelper):
     """Selection to DAE"""
-    bl_idname = "export_scene.dae"
+    bl_idname = "export_scene.tscn"
     bl_label = "Export DAE"
     bl_options = {"PRESET"}
 
-    filename_ext = ".dae"
-    filter_glob = StringProperty(default="*.dae", options={"HIDDEN"})
+    filename_ext = ".tscn"
+    filter_glob = StringProperty(default="*.tscn", options={"HIDDEN"})
 
     # List of operator properties, the attributes will be assigned
     # to the class instance from the operator settings before calling
@@ -160,7 +160,7 @@ class ExportDAE(bpy.types.Operator, ExportHelper):
 
 
 def menu_func(self, context):
-    self.layout.operator(ExportDAE.bl_idname, text="Better Collada (.dae)")
+    self.layout.operator(ExportDAE.bl_idname, text="Better Collada (.tscn)")
 
 
 def register():

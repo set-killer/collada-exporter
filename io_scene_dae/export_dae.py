@@ -24,6 +24,8 @@ This script is an exporter to the Khronos Collada file format.
 http://www.khronos.org/collada/
 """
 
+import pprint
+
 import os
 import time
 import math
@@ -60,10 +62,26 @@ def snap_tup(tup):
 
 def strmtx(mtx):
     s = ""
-    for x in range(4):
-        for y in range(4):
-            s += "{} ".format(mtx[x][y])
-    s = " {} ".format(s)
+    s += "{0:.6f}, ".format(mtx[0][0])
+    s += "{0:.6f}, ".format(mtx[0][1])
+    s += "{0:.6f}, ".format(mtx[0][2])
+
+    s += "{0:.6f}, ".format(mtx[2][0])
+    s += "{0:.6f}, ".format(mtx[2][1])
+    s += "{0:.6f}, ".format(mtx[2][2])
+
+    s += "{0:.6f}, ".format(-mtx[1][0])
+    s += "{0:.6f}, ".format(-mtx[1][1])
+    s += "{0:.6f}, ".format(-mtx[1][2])
+
+    s += "{0:.6f}, ".format(mtx[0][3])
+    s += "{0:.6f}, ".format(mtx[2][3])
+    s += "{0:.6f} ".format(-mtx[1][3])
+
+    # for x in range(3):
+    #     for y in range(4):
+    #         s += "{0:.6f}, ".format(mtx[x][y])
+    # s = " {} ".format(s)
     return s
 
 
@@ -150,6 +168,12 @@ class DaeExporter:
             self.uv2 = Vector((0.0, 0.0))
             self.bones = []
             self.weights = []
+
+    def writeln(self, section, text):
+        if (not (section in self.sections)):
+            self.sections[section] = []
+        line = "{}".format(text)
+        self.sections[section].append(line)
 
     def writel(self, section, indent, text):
         if (not (section in self.sections)):
@@ -1196,61 +1220,87 @@ class DaeExporter:
 
         light = node.data
         lightid = self.new_id("light")
-        self.writel(S_LAMPS, 1, "<light id=\"{}\" name=\"{}\">".format(
-                lightid, light.name))
-        self.writel(S_LAMPS, 3, "<technique_common>")
+        # self.writel(S_LAMPS, 1, "<light id=\"{}\" name=\"{}\">".format(
+        #         lightid, light.name))
+        # self.writel(S_LAMPS, 3, "<technique_common>")
 
         if (light.type == "POINT"):
-            self.writel(S_LAMPS, 4, "<point>")
-            self.writel(S_LAMPS, 5, "<color>{}</color>".format(
-                strarr(light.color)))
-            # Convert to linear attenuation
-            att_by_distance = 2.0 / light.distance
-            self.writel(
-                S_LAMPS, 5,
-                "<linear_attenuation>{}</linear_attenuation>".format(
-                    att_by_distance))
-            if (light.use_sphere):
-                self.writel(S_LAMPS, 5, "<zfar>{}</zfar>".format(
-                    light.distance))
+            self.writeln(S_LAMPS, "")
+            self.writeln(S_LAMPS, "[node name=\"{}\" type=\"OmniLight\" parent=\".\"]".format(node.name))
+            self.writeln(S_LAMPS, "")
+            self.writeln(S_LAMPS, "_import_path = NodePath(\"{}\")".format(node.name))
+            self.writeln(S_LAMPS, "_import_transform = Transform( {} )".format(strmtx(node.matrix_local)))
+            self.writeln(S_LAMPS, "transform/local = Transform( {} )".format(strmtx(node.matrix_local)))
+            self.writeln(S_LAMPS, "shadow/shadow = {}".format(node.cycles.cast_shadow))
 
-            self.writel(S_LAMPS, 4, "</point>")
-        elif (light.type == "SPOT"):
-            self.writel(S_LAMPS, 4, "<spot>")
-            self.writel(S_LAMPS, 5, "<color>{}</color>".format(
-                strarr(light.color)))
-            # Convert to linear attenuation
-            att_by_distance = 2.0 / light.distance
-            self.writel(
-                S_LAMPS, 5,
-                "<linear_attenuation>{}</linear_attenuation>".format(
-                    att_by_distance))
-            self.writel(
-                S_LAMPS, 5, "<falloff_angle>{}</falloff_angle>".format(
-                    math.degrees(light.spot_size / 2)))
-            self.writel(S_LAMPS, 4, "</spot>")
 
-        else:  # Write a sun lamp for everything else (not supported)
-            self.writel(S_LAMPS, 4, "<directional>")
-            self.writel(S_LAMPS, 5, "<color>{}</color>".format(
-                strarr(light.color)))
-            self.writel(S_LAMPS, 4, "</directional>")
-
-        self.writel(S_LAMPS, 3, "</technique_common>")
-        self.writel(S_LAMPS, 1, "</light>")
-
-        self.writel(S_NODES, il, "<instance_light url=\"#{}\"/>".format(
-            lightid))
+# [node name="Lamp" type="OmniLight" parent="."]
+#
+# _import_path = NodePath("Lamp")
+# _import_transform = Transform( -0.290865, -0.771101, 0.566393, -0.0551891, 0.604525, 0.794672, -0.955171, 0.199883, -0.218391, 4.07625, 5.90386, -1.00545 )
+#
+            # self.writel(S_LAMPS, 4, "<point>")
+            # self.writel(S_LAMPS, 5, "<color>{}</color>".format(
+            #     strarr(light.color)))
+            # # Convert to linear attenuation
+            # att_by_distance = 2.0 / light.distance
+            # self.writel(
+            #     S_LAMPS, 5,
+            #     "<linear_attenuation>{}</linear_attenuation>".format(
+            #         att_by_distance))
+            # if (light.use_sphere):
+            #     self.writel(S_LAMPS, 5, "<zfar>{}</zfar>".format(
+            #         light.distance))
+            #
+            # self.writel(S_LAMPS, 4, "</point>")
+        # elif (light.type == "SPOT"):
+        #     self.writel(S_LAMPS, 4, "<spot>")
+        #     self.writel(S_LAMPS, 5, "<color>{}</color>".format(
+        #         strarr(light.color)))
+        #     # Convert to linear attenuation
+        #     att_by_distance = 2.0 / light.distance
+        #     self.writel(
+        #         S_LAMPS, 5,
+        #         "<linear_attenuation>{}</linear_attenuation>".format(
+        #             att_by_distance))
+        #     self.writel(
+        #         S_LAMPS, 5, "<falloff_angle>{}</falloff_angle>".format(
+        #             math.degrees(light.spot_size / 2)))
+        #     self.writel(S_LAMPS, 4, "</spot>")
+        #
+        # else:  # Write a sun lamp for everything else (not supported)
+        #     self.writel(S_LAMPS, 4, "<directional>")
+        #     self.writel(S_LAMPS, 5, "<color>{}</color>".format(
+        #         strarr(light.color)))
+        #     self.writel(S_LAMPS, 4, "</directional>")
+        #
+        # self.writel(S_LAMPS, 3, "</technique_common>")
+        # self.writel(S_LAMPS, 1, "</light>")
+        #
+        # self.writel(S_NODES, il, "<instance_light url=\"#{}\"/>".format(
+        #     lightid))
 
     def export_empty_node(self, node, il):
-        self.writel(S_NODES, 4, "<extra>")
-        self.writel(S_NODES, 5, "<technique profile=\"GODOT\">")
-        self.writel(
-            S_NODES, 6,
-            "<empty_draw_type>{}</empty_draw_type>".format(
-                node.empty_draw_type))
-        self.writel(S_NODES, 5, "</technique>")
-        self.writel(S_NODES, 4, "</extra>")
+
+        # [node name="Spatial" type="Spatial"]
+        #
+        # _import_path = NodePath(".")
+        # _import_transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0 )
+
+        self.writeln(S_LAMPS, "")
+        self.writeln(S_NODES, "[node name=\"{}\" type=\"Spatial\"]".format(node.name))
+        self.writeln(S_LAMPS, "")
+        self.writeln(S_NODES, "_import_path = NodePath(\".\")")
+        self.writeln(S_NODES, "_import_transform = Transform( {} )".format(strmtx(node.matrix_local)))
+
+        # self.writel(S_NODES, 4, "<extra>")
+        # self.writel(S_NODES, 5, "<technique profile=\"GODOT\">")
+        # self.writel(
+        #     S_NODES, 6,
+        #     "<empty_draw_type>{}</empty_draw_type>".format(
+        #         node.empty_draw_type))
+        # self.writel(S_NODES, 5, "</technique>")
+        # self.writel(S_NODES, 4, "</extra>")
 
     def export_curve(self, curve):
         splineid = self.new_id("spline")
@@ -1430,22 +1480,28 @@ class DaeExporter:
         prev_node = bpy.context.scene.objects.active
         bpy.context.scene.objects.active = node
 
-        self.writel(
-            S_NODES, il, "<node id=\"{}\" name=\"{}\" type=\"NODE\">".format(
-                self.validate_id(node.name), node.name))
+        # [node name="Spatial" type="Spatial"]
+        #
+        # _import_path = NodePath(".")
+        # _import_transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0 )
+        #
+        # self.writel(
+        #     S_NODES, il, "<node id=\"{}\" name=\"{}\" type=\"NODE\">".format(
+        #         self.validate_id(node.name), node.name))
         il += 1
 
-        self.writel(
-            S_NODES, il, "<matrix sid=\"transform\">{}</matrix>".format(
-                strmtx(node.matrix_local)))
+        # self.writel(
+        #     S_NODES, il, "<matrix sid=\"transform\">{}</matrix>".format(
+        #         strmtx(node.matrix_local)))
         if (node.type == "MESH"):
-            self.export_mesh_node(node, il)
-        elif (node.type == "CURVE"):
-            self.export_curve_node(node, il)
-        elif (node.type == "ARMATURE"):
-            self.export_armature_node(node, il)
-        elif (node.type == "CAMERA"):
-            self.export_camera_node(node, il)
+            pass
+            # self.export_mesh_node(node, il)
+        # elif (node.type == "CURVE"):
+        #     self.export_curve_node(node, il)
+        # elif (node.type == "ARMATURE"):
+        #     self.export_armature_node(node, il)
+        # elif (node.type == "CAMERA"):
+        #     self.export_camera_node(node, il)
         elif (node.type == "LAMP"):
             self.export_lamp_node(node, il)
         elif (node.type == "EMPTY"):
@@ -1455,7 +1511,7 @@ class DaeExporter:
             self.export_node(x, il)
 
         il -= 1
-        self.writel(S_NODES, il, "</node>")
+        # self.writel(S_NODES, il, "</node>")
         bpy.context.scene.objects.active = prev_node
 
     def is_node_valid(self, node):
@@ -1477,10 +1533,16 @@ class DaeExporter:
         return True
 
     def export_scene(self):
-        self.writel(S_NODES, 0, "<library_visual_scenes>")
-        self.writel(
-            S_NODES, 1, "<visual_scene id=\"{}\" name=\"scene\">".format(
-                self.scene_name))
+        # self.writel(S_NODES, 0, "<library_visual_scenes>")
+        # self.writel(
+        #     S_NODES, 1, "<visual_scene id=\"{}\" name=\"scene\">".format(
+        #         self.scene_name))
+
+        self.writeln(S_ASSET, "")
+        self.writeln(S_ASSET, "[node name=\"Spatial\" type=\"Spatial\"]")
+        self.writeln(S_ASSET, "")
+        self.writeln(S_ASSET, "_import_path = NodePath(\".\")")
+        self.writeln(S_ASSET, "_import_transform = Transform( 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0 )")
 
         for obj in self.scene.objects:
             if (obj in self.valid_nodes):
@@ -1496,8 +1558,8 @@ class DaeExporter:
             if (obj in self.valid_nodes and obj.parent is None):
                 self.export_node(obj, 2)
 
-        self.writel(S_NODES, 1, "</visual_scene>")
-        self.writel(S_NODES, 0, "</library_visual_scenes>")
+        # self.writel(S_NODES, 1, "</visual_scene>")
+        # self.writel(S_NODES, 0, "</library_visual_scenes>")
 
     def export_asset(self):
         self.writel(S_ASSET, 0, "<asset>")
@@ -1836,51 +1898,54 @@ class DaeExporter:
         self.writel(S_ANIM, 0, "</library_animations>")
 
     def export(self):
-        self.writel(S_GEOM, 0, "<library_geometries>")
-        self.writel(S_CONT, 0, "<library_controllers>")
-        self.writel(S_CAMS, 0, "<library_cameras>")
-        self.writel(S_LAMPS, 0, "<library_lights>")
-        self.writel(S_IMGS, 0, "<library_images>")
-        self.writel(S_MATS, 0, "<library_materials>")
-        self.writel(S_FX, 0, "<library_effects>")
-
-        self.export_asset()
+        # self.writel(S_GEOM, 0, "<library_geometries>")
+        # self.writel(S_CONT, 0, "<library_controllers>")
+        # self.writel(S_CAMS, 0, "<library_cameras>")
+        # self.writel(S_LAMPS, 0, "<library_lights>")
+        # self.writel(S_IMGS, 0, "<library_images>")
+        # self.writel(S_MATS, 0, "<library_materials>")
+        # self.writel(S_FX, 0, "<library_effects>")
+        #
+        # self.export_asset()
         self.export_scene()
 
-        self.writel(S_GEOM, 0, "</library_geometries>")
-
-        # Morphs always go before skin controllers
-        if S_MORPH in self.sections:
-            for l in self.sections[S_MORPH]:
-                self.writel(S_CONT, 0, l)
-            del self.sections[S_MORPH]
-
-        if S_SKIN in self.sections:
-            for l in self.sections[S_SKIN]:
-                self.writel(S_CONT, 0, l)
-            del self.sections[S_SKIN]
-
-        self.writel(S_CONT, 0, "</library_controllers>")
-        self.writel(S_CAMS, 0, "</library_cameras>")
-        self.writel(S_LAMPS, 0, "</library_lights>")
-        self.writel(S_IMGS, 0, "</library_images>")
-        self.writel(S_MATS, 0, "</library_materials>")
-        self.writel(S_FX, 0, "</library_effects>")
-
-        self.purge_empty_nodes()
-
-        if (self.config["use_anim"]):
-            self.export_animations()
+        # self.writel(S_GEOM, 0, "</library_geometries>")
+        #
+        # # Morphs always go before skin controllers
+        # if S_MORPH in self.sections:
+        #     for l in self.sections[S_MORPH]:
+        #         self.writel(S_CONT, 0, l)
+        #     del self.sections[S_MORPH]
+        #
+        # if S_SKIN in self.sections:
+        #     for l in self.sections[S_SKIN]:
+        #         self.writel(S_CONT, 0, l)
+        #     del self.sections[S_SKIN]
+        #
+        # self.writel(S_CONT, 0, "</library_controllers>")
+        # self.writel(S_CAMS, 0, "</library_cameras>")
+        # self.writel(S_LAMPS, 0, "</library_lights>")
+        # self.writel(S_IMGS, 0, "</library_images>")
+        # self.writel(S_MATS, 0, "</library_materials>")
+        # self.writel(S_FX, 0, "</library_effects>")
+        #
+        # self.purge_empty_nodes()
+        #
+        # if (self.config["use_anim"]):
+        #     self.export_animations()
 
         try:
             f = open(self.path, "wb")
         except:
             return False
 
-        f.write(bytes("<?xml version=\"1.0\" encoding=\"utf-8\"?>\n", "UTF-8"))
-        f.write(bytes(
-            "<COLLADA xmlns=\"http://www.collada.org/2005/11/COLLADASchema\" "
-            "version=\"1.4.1\">\n", "UTF-8"))
+        f.write(bytes("[gd_scene load_steps=3 format=1]\n", "UTF-8"))
+        # f.write(bytes(
+        #     "<COLLADA xmlns=\"http://www.collada.org/2005/11/COLLADASchema\" "
+        #     "version=\"1.4.1\">\n", "UTF-8"))
+
+        pp = pprint.PrettyPrinter(indent=4)
+        pp.pprint(self.sections.keys())
 
         s = []
         for x in self.sections.keys():
@@ -1889,13 +1954,13 @@ class DaeExporter:
         for x in s:
             for l in self.sections[x]:
                 f.write(bytes(l + "\n", "UTF-8"))
-
-        f.write(bytes("<scene>\n", "UTF-8"))
-        f.write(bytes(
-            "\t<instance_visual_scene url=\"#{}\" />\n".format(
-                self.scene_name), "UTF-8"))
-        f.write(bytes("</scene>\n", "UTF-8"))
-        f.write(bytes("</COLLADA>\n", "UTF-8"))
+        #
+        # f.write(bytes("<scene>\n", "UTF-8"))
+        # f.write(bytes(
+        #     "\t<instance_visual_scene url=\"#{}\" />\n".format(
+        #         self.scene_name), "UTF-8"))
+        # f.write(bytes("</scene>\n", "UTF-8"))
+        # f.write(bytes("</COLLADA>\n", "UTF-8"))
         return True
 
     __slots__ = ("operator", "scene", "last_id", "scene_name", "sections",
